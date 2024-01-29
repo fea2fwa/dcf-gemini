@@ -15,7 +15,7 @@ genai.configure(api_key=GOOGLE_API_KEY)
 
 model = genai.GenerativeModel('gemini-pro')
 
-def convert_entities(text):
+def convert_entities_content(text):
     # 不要な単語をリスト
     special_charactors = ["&nbsp;", "&gt;"]
 
@@ -23,6 +23,23 @@ def convert_entities(text):
     for character in special_charactors:
         text = text.replace(character, "")
     
+    return text
+
+def convert_entities_htmltag(text):
+    # &lt; を < に置き換え
+    text = text.replace("&lt;", "<")
+    
+    # &gt; を > に置き換え
+    text = text.replace("&gt;", ">")
+
+    return text
+
+def convert_entities_refine(text):
+
+    text = text.replace("<th>Summary</th>", "<th><center>タイトル（URL）</center></th>")
+    text = text.replace("<th>Summary (AI generated)</th>", "<th><center>要約 (AIによる作成)</center></th>")
+    text = text.replace("<th>Post time</th>", "<th><center>投稿日</center></th>")
+
     return text
 
 def fetch_data_from_url(url):
@@ -83,19 +100,41 @@ def fetch_data_from_url(url):
     whole_text += "[提案された回答]"
 
     for content in suggested_answer_text:
-        cleaned_text =convert_entities(content)
+        cleaned_text =convert_entities_content(content)
         whole_text += cleaned_text
     
     whole_text += "[受け入れられた良い回答]"
     
     for content in accepted_answer_text:
-        cleaned_text = convert_entities(content)
+        cleaned_text = convert_entities_content(content)
         whole_text += cleaned_text
     
     return(whole_text, post_time)
 
 
 def main():
+
+    ### タイトルとそのタイトルにURLを埋め込んだDataFrameを作成するセクション ###
+    # エクセルファイルを読み込む
+    df_title = pd.read_excel('test.xlsx')
+
+
+    # E列の値が「URL」の場合に、F列の文字列にB列のURL情報をHTMLで埋め込む
+    for i in range(len(df_title)):
+        if df_title.loc[i, "Product"] == "VxRail":
+            df_title.loc[i, "Summary"] = "<a href=\"{0}\">{1}</a>".format(df_title.loc[i, "Thread #"], df_title.loc[i, "Summary"])
+
+    df_title = df_title.loc[df_title["Product"] == "VxRail"]
+
+    print(df_title.head(10))
+
+    df_title = df_title[["Summary"]]
+
+    print(df_title.head(10))
+    print(df_title.shape)
+    
+
+    ### コンテンツの内容を読み込み、その内容をGemini APIに渡して要約を作成して、更にそのコンテンツの書き込み日をDataFrameにするセクション ###
     # エクセルファイルを読み込む
     df = pd.read_excel('test.xlsx')
 
@@ -115,7 +154,34 @@ def main():
         post_time_list.append(post_time)
  
     df_summary = pd.DataFrame({"Summary (AI generated)": summary_list, "Post time": post_time_list})                                      
-    print(df_summary.head(20))
+    print(df_summary.head(10))
+    print(df_summary.shape)
+
+    df_title.reset_index(drop=True, inplace=True)
+    df_summary.reset_index(drop=True, inplace=True)
+    
+    output_df = pd.concat([df_title, df_summary], axis=1)
+
+    print(output_df)
+
+    # HTMLのテーブル形式で表示する
+    html = output_df.to_html(index=False)
+
+    # タグを特殊文字から修正
+    html = convert_entities_htmltag(html)
+
+    # タイトルなどの微調整
+    html = convert_entities_refine(html)
+
+
+    html_output = open("htmltext.txt", "w+", encoding="UTF-8")
+    html_output.write(html)
+    html_output.close()
+
+    
 
 if __name__ == "__main__":
     main()
+
+
+
