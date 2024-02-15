@@ -25,6 +25,12 @@ def convert_entities_content(text):
     
     return text
 
+def delete_newline_charactor(text):
+    # &lt; を < に置き換え
+    text = text.replace("\n", "")
+
+    return text
+
 def convert_entities_htmltag(text):
     # &lt; を < に置き換え
     text = text.replace("&lt;", "<")
@@ -113,18 +119,22 @@ def fetch_data_from_url(url):
 
 
 def main():
+    # 取得ファイル名と取得するプロダクト情報を決定
+    excel_file_name = "total.xlsx"
+    target_product = "Avamar"
 
     ### タイトルとそのタイトルにURLを埋め込んだDataFrameを作成するセクション ###
     # エクセルファイルを読み込む
-    df_title = pd.read_excel('test.xlsx')
+    df_title = pd.read_excel(excel_file_name)
 
+    
 
     # E列の値が「URL」の場合に、F列の文字列にB列のURL情報をHTMLで埋め込む
     for i in range(len(df_title)):
-        if df_title.loc[i, "Product"] == "VxRail":
+        if df_title.loc[i, "Product"] == target_product:
             df_title.loc[i, "Summary"] = "<a href=\"{0}\">{1}</a>".format(df_title.loc[i, "Thread #"], df_title.loc[i, "Summary"])
 
-    df_title = df_title.loc[df_title["Product"] == "VxRail"]
+    df_title = df_title.loc[df_title["Product"] == target_product]
 
     print(df_title.head(10))
 
@@ -136,22 +146,27 @@ def main():
 
     ### コンテンツの内容を読み込み、その内容をGemini APIに渡して要約を作成して、更にそのコンテンツの書き込み日をDataFrameにするセクション ###
     # エクセルファイルを読み込む
-    df = pd.read_excel('test.xlsx')
+    df = pd.read_excel(excel_file_name)
 
     # VxRailに関するコンテンツのみを抽出
-    df = df.loc[df["Product"] == "VxRail"]
+    df = df.loc[df["Product"] == target_product]
 
     # df_summary = pd.DataFrame(columns=["Summary (AI generated)"])
     summary_list = []
     post_time_list = []
     for url in df["Thread #"]:
-        
-        row_text, post_time = fetch_data_from_url(url)
-        response = model.generate_content(f"次の文章を200文字以内で要約して:{row_text}")
-        print(post_time)
-        print(response.text)
-        summary_list.append(response.text)
-        post_time_list.append(post_time)
+        try:
+            row_text, post_time = fetch_data_from_url(url)
+            response = model.generate_content(f"次の文章を200文字以内で要約して:{row_text}")
+            print(post_time)
+            print(response.text)
+            summary_list.append(delete_newline_charactor(response.text))
+            post_time_list.append(post_time)
+        except Exception as e:
+            print(f"URLからのデータ取得かThread内容の取得に失敗しました：{e}")
+            summary_list.append("（情報取得に失敗しました。当該コンテンツは削除されている、もしくはURLが変更されている可能性があります。）")
+            post_time_list.append("N/A")
+
  
     df_summary = pd.DataFrame({"Summary (AI generated)": summary_list, "Post time": post_time_list})                                      
     print(df_summary.head(10))
@@ -174,7 +189,7 @@ def main():
     html = convert_entities_refine(html)
 
 
-    html_output = open("htmltext.txt", "w+", encoding="UTF-8")
+    html_output = open(f"htmltext_{target_product}.txt", "w+", encoding="UTF-8")
     html_output.write(html)
     html_output.close()
 
