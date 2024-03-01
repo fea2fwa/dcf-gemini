@@ -42,9 +42,9 @@ def convert_entities_htmltag(text):
 
 def convert_entities_refine(text):
 
-    text = text.replace("<th>Summary</th>", "<th><center>タイトル（URL）</center></th>")
-    text = text.replace("<th>Summary (AI generated)</th>", "<th><center>要約 (AIによる作成)</center></th>")
-    text = text.replace("<th>Post time</th>", "<th><center>投稿日</center></th>")
+    text = text.replace("<th>Titles</th>", "<th><center>Title(URL)</center></th>")
+    text = text.replace("<th>Summary (AI generated)</th>", "<th><center>Summary(AI generated)</center></th>")
+    text = text.replace("<th>Post time</th>", "<th><center>Post date</center></th>")
 
     return text
 
@@ -59,8 +59,8 @@ def fetch_data_from_url(url):
     # bs4とdatetimeで投稿時間（日本時間はtimedeltaを利用）を取得
     date_text = soup.find('p', class_='m-r-1 dell-conversation-ballon__header-date text text--normal css-1ry1tx8 css-jp8xm2').get_text(strip=True)
     original_time = datetime.strptime(date_text, "%Y年%m月%d日 %H:%M")
-    new_time = original_time + timedelta(hours=9)
-    post_time = new_time.strftime('%Y/%m/%d')
+    new_time = original_time + timedelta(hours=8)
+    post_time = new_time.strftime('%Y年%m月%d日')
 
     # criptタグのtype "application/ld+json"からコンテンツを入手
     script_content = soup.find('script', {'type': 'application/ld+json'}).string
@@ -101,15 +101,15 @@ def fetch_data_from_url(url):
         print(f"accepted answer取得に失敗したか、該当項目が存在しませんでした：{e}")
 
     whole_text = ""
-    whole_text += "[質問]"
+    whole_text += "[问题]"
     whole_text += question_text
-    whole_text += "[提案された回答]"
+    whole_text += "[提案的回答]"
 
     for content in suggested_answer_text:
         cleaned_text =convert_entities_content(content)
         whole_text += cleaned_text
     
-    whole_text += "[受け入れられた良い回答]"
+    whole_text += "[受欢迎的回答]"
     
     for content in accepted_answer_text:
         cleaned_text = convert_entities_content(content)
@@ -120,8 +120,8 @@ def fetch_data_from_url(url):
 
 def main():
     # 取得ファイル名と取得するプロダクト情報を決定
-    excel_file_name = "test_long.xlsx"
-    target_product = "PowerScale"
+    excel_file_name = "GenAI_example_CHN.xlsx"
+    # target_product = "Avamar"
 
     ### タイトルとそのタイトルにURLを埋め込んだDataFrameを作成するセクション ###
     # エクセルファイルを読み込む
@@ -131,14 +131,14 @@ def main():
 
     # E列の値が「URL」の場合に、F列の文字列にB列のURL情報をHTMLで埋め込む
     for i in range(len(df_title)):
-        if df_title.loc[i, "Product"] == target_product:
-            df_title.loc[i, "Summary"] = "<a href=\"{0}\">{1}</a>".format(df_title.loc[i, "Thread #"], df_title.loc[i, "Summary"])
+        # if df_title.loc[i, "Product"] == target_product:
+            df_title.loc[i, "Titles"] = "<a href=\"{0}\">{1}</a>".format(df_title.loc[i, "URLs"], df_title.loc[i, "Titles"])
 
-    df_title = df_title.loc[df_title["Product"] == target_product]
+    # df_title = df_title.loc[df_title["Product"] == target_product]
 
-    print(df_title.head(10))
+    # print(df_title.head(10))
 
-    df_title = df_title[["Summary"]]
+    df_title = df_title[["Titles"]]
 
     print(df_title.head(10))
     print(df_title.shape)
@@ -149,22 +149,22 @@ def main():
     df = pd.read_excel(excel_file_name)
 
     # VxRailに関するコンテンツのみを抽出
-    df = df.loc[df["Product"] == target_product]
+    # df = df.loc[df["Product"] == target_product]
 
     # df_summary = pd.DataFrame(columns=["Summary (AI generated)"])
     summary_list = []
     post_time_list = []
-    for url in df["Thread #"]:
+    for url in df["URLs"]:
         try:
             row_text, post_time = fetch_data_from_url(url)
-            response = model.generate_content(f"次の文章を200文字以内で要約して:{row_text}")
+            response = model.generate_content(f"请将以下文章概括为100字以内:{row_text}")
             print(post_time)
             print(response.text)
             summary_list.append(delete_newline_charactor(response.text))
             post_time_list.append(post_time)
         except Exception as e:
             print(f"URLからのデータ取得かThread内容の取得に失敗しました：{e}")
-            summary_list.append("（情報取得に失敗しました。当該コンテンツは削除されている、もしくはURLが変更されている可能性があります。）")
+            summary_list.append("Failed to retrieve information. The content may have been deleted or the URL may have changed.")
             post_time_list.append("N/A")
 
  
@@ -189,7 +189,7 @@ def main():
     html = convert_entities_refine(html)
 
 
-    html_output = open(f"htmltext_{target_product}.txt", "w+", encoding="UTF-8")
+    html_output = open(f"htmltext_chn-summary.html", "w+", encoding="UTF-8")
     html_output.write(html)
     html_output.close()
 
