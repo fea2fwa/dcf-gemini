@@ -120,7 +120,7 @@ def fetch_data_from_url(url):
 
 def main():
     # 取得ファイル名と取得するプロダクト情報を決定
-    excel_file_name = "GenAI_example_CHN.xlsx"
+    excel_file_name = "GenAI_Summary_CHN_Mar.xlsx"
     # target_product = "Avamar"
 
     ### タイトルとそのタイトルにURLを埋め込んだDataFrameを作成するセクション ###
@@ -189,7 +189,7 @@ def main():
     html = convert_entities_refine(html)
 
 
-    html_output = open(f"htmltext_chn-summary.html", "w+", encoding="UTF-8")
+    html_output = open(f"{excel_file_name}.html", "w+", encoding="UTF-8")
     html_output.write(html)
     html_output.close()
 

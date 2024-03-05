@@ -202,7 +202,7 @@ def main():
     html = convert_entities_refine(html)
 
 
-    html_output = open("htmltext_en-summary.html", "w+", encoding="UTF-8")
+    html_output = open(f"{excel_file_name}.html", "w+", encoding="UTF-8")
     html_output.write(html)
     html_output.close()
 
